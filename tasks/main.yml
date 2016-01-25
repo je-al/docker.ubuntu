@@ -47,8 +47,8 @@
     - install
 
 - name: Set docker daemon options
-  copy:
-    content: "DOCKER_OPTS=\"{{ docker_opts.rstrip('\n') }}\""
+  template:
+    src: etc/default/docker.j2
     dest: /etc/default/docker
     owner: root
     group: root
@@ -71,10 +71,8 @@
     - configuration
 
 - name: Set docker daemon options (systemd)
-  copy:
-    content: |
-      [Service]
-      Environment="DOCKER_OPTS={{ docker_opts.rstrip('\n') }}"
+  template:
+    src: etc/systemd/system/docker.service.d/env.conf.j2
     dest: /etc/systemd/system/docker.service.d/env.conf
     owner: root
     group: root
