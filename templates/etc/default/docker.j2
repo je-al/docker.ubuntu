@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+# Docker Upstart and SysVinit configuration file
+
+DOCKER_OPTS="
+{%- for key, value in docker_opts.iteritems() -%}
+{%- if value is not string -%}
+{%- for nvalue in value %}
+ --{{ key }}={{ nvalue }}
+{%- endfor -%}
+{% else %}
+ --{{ key }}={{ value }}
+{%- endif -%}
+{%- endfor -%}"
