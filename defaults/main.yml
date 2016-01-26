@@ -16,11 +16,14 @@ apt_key_sig: 2C52609D
 apt_repository: deb https://apt.dockerproject.org/repo ubuntu-{{ ansible_distribution_release }} main
 # The following help expose a docker port or to add additional options when
 # running docker daemon.  The default is to not use any special options.
+# Currently only "long form" options are supported.
 #docker_opts: >
-#  -H unix://
-#  -H tcp://0.0.0.0:2375
-#  --log-level=debug
-docker_opts: ""
+#  host:
+#    - unix://
+#    - tcp://0.0.0.0:2375
+#  log-level:
+#    - debug
+#docker_opts: []
 # List of users to be added to 'docker' system group (disabled by default)
 # SECURITY WARNING: 
 # Be aware that granted users can easily get full root access on the docker host system!
