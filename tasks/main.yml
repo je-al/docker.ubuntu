@@ -4,10 +4,14 @@
   fail:
     msg: "{{ ansible_distribution_version }} is not an acceptable version of Ubuntu for this role"
   when: ansible_distribution_version|version_compare(12.04, '<') or ansible_distribution_version|version_compare(12.10, '=')
+  tags:
+    - install
 
 - name: Update kernel, kernel extras, Xorg pkgs, and related tasks
   include: kernel_check_and_update.yml
   when: kernel_update_and_reboot_permitted or install_kernel_extras
+  tags:
+    - install
 
 - name: Add Docker repository key
   apt_key:
@@ -16,16 +20,22 @@
     state: present
   register: add_repository_key
   ignore_errors: true
+  tags:
+    - install
 
 - name: Alternative | Add Docker repository key
   shell: curl -sSL https://get.docker.com/gpg | sudo apt-key add -
   when: add_repository_key|failed
+  tags:
+    - install
 
 - name: Add Docker repository and update apt cache
   apt_repository:
     repo: "{{ apt_repository }}"
     update_cache: yes
     state: present
+  tags:
+    - install
 
 - name: Install (or update) docker package
   apt:
@@ -33,6 +43,8 @@
     state: "{{ 'latest' if update_docker_package else 'present' }}"
     update_cache: yes
     cache_valid_time: "{{ docker_apt_cache_valid_time }}"
+  tags:
+    - install
 
 - name: Set docker daemon options
   copy:
@@ -44,6 +56,8 @@
   notify:
     - Reload docker
   when: docker_opts != "" and ansible_distribution_version|version_compare(15.04, '<')
+  tags:
+    - configuration
 
 - name: Create systemd configuration directory for Docker service (systemd)
   file: 
@@ -53,6 +67,8 @@
     group: root
     mode: 0755 
   when: docker_opts != "" and ansible_distribution_version|version_compare(15.04, '>=')
+  tags:
+    - configuration
 
 - name: Set docker daemon options (systemd)
   copy:
@@ -67,6 +83,8 @@
     - Reload systemd
     - Restart docker
   when: docker_opts != "" and ansible_distribution_version|version_compare(15.04, '>=')
+  tags:
+    - configuration
 
 - name: Ensure docker daemon options used (systemd)
   lineinfile:
@@ -77,6 +95,8 @@
     - Reload systemd
     - Restart docker
   when: docker_opts != "" and ansible_distribution_version|version_compare(15.04, '>=')
+  tags:
+    - configuration
 
 - name: Fix DNS in docker.io
   lineinfile:
@@ -86,6 +106,8 @@
   register: dns_fix
   notify: Restart dockerio
   when: docker_pkg_name == 'docker.io'
+  tags:
+    - configuration
 
 - meta: flush_handlers
   when: "dns_fix|changed"
@@ -104,6 +126,8 @@
   with_items:
     - python-dev
     - python-pip
+  tags:
+    - install
 
 # Upgrade pip with pip to fix angstwad/docker.ubuntu/pull/35 and docker-py/issues/525
 # Install latest version when no specific release is set.
@@ -118,6 +142,8 @@
     - { name: docker-compose, version: "{{ pip_version_docker_compose }}" }
   when: item.version=="latest"
   ignore_errors: yes
+  tags:
+    - install
 
 # Install specific version when set in the variables
 - name: Install specific pip, setuptools, docker-py and docker-compose with pip
@@ -131,11 +157,15 @@
     - { name: docker-py, version: "{{ pip_version_docker_py }}" }
     - { name: docker-compose, version: "{{ pip_version_docker_compose }}" }
   when: item.version!="latest"
+  tags:
+    - install
 
 - name: Check if /etc/updatedb.conf exists
   stat:
     path: /etc/updatedb.conf
   register: updatedb_conf_exists
+  tags:
+    - configuration
 
 - name: Ensure updatedb does not index /var/lib/docker
   lineinfile:
@@ -145,11 +175,15 @@
     regexp: '^PRUNEPATHS="(/var/lib/docker )?(.*)"$'
     line: 'PRUNEPATHS="/var/lib/docker \2"'
   when: updatedb_conf_exists.stat.exists
+  tags:
+    - configuration
 
 - name: Check if /etc/default/ufw exists
   stat:
     path: /etc/default/ufw
   register: ufw_default_exists
+  tags:
+    - configuration
 
 - name: Change ufw default forward policy from drop to accept
   lineinfile:
@@ -157,18 +191,24 @@
     regexp: "^DEFAULT_FORWARD_POLICY="
     line: "DEFAULT_FORWARD_POLICY=\"ACCEPT\""
   when: ufw_default_exists.stat.exists
+  tags:
+    - configuration
 
 - name: Start docker
   service:
     name: docker
     state: started
   when: docker_pkg_name.find('lxc-docker') != -1 or docker_pkg_name.find('docker-engine') != -1
+  tags:
+    - service
 
 - name: Start docker.io
   service:
     name: docker.io
     state: started
   when: docker_pkg_name == 'docker.io'
+  tags:
+    - service
 
   # ATTENTION: this task can potentially create new users!
 - name: Add users to the docker group
@@ -178,6 +218,8 @@
     append: yes
   with_items: docker_group_members
   when: docker_group_members is defined
+  tags:
+    - users
 
 - name: update facts if docker0 is not defined
   action: setup
